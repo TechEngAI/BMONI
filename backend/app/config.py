@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     squad_webhook_secret: str = Field(..., alias="SQUAD_WEBHOOK_SECRET")
     use_squad_lookup: bool = Field(False, alias="USE_SQUAD_LOOKUP")
     squad_account_lookup_path: str = Field("/account/lookup", alias="SQUAD_ACCOUNT_LOOKUP_PATH")
+    bmoni_base_url: str = Field(..., alias="BMONI_BASE_URL")
+    bmoni_api_key: str = Field(..., alias="BMONI_API_KEY")
     environment: str = Field("development", alias="ENVIRONMENT")
     frontend_url: str = Field("http://localhost:3000", alias="FRONTEND_URL")
 

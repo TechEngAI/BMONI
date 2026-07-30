@@ -143,3 +143,8 @@ BEFORE UPDATE ON roles
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
+-- Grant table-level permissions to the service_role.
+-- Without this every backend DB query (all service-role key calls) fails with 42501.
+GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;
+

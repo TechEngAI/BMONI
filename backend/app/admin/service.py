@@ -49,11 +49,12 @@ def _unique_invite_code(db: Any, company_name: str, role_name: str, current_code
         code = _generate_code(company_name, role_name)
         try:
             existing = _require_response(
-                db.table("roles").select("id").eq("invite_code", code).maybe_single().execute(),
+                db.table("roles").select("id").eq("invite_code", code).execute(),
                 "DATABASE_QUERY_FAILED",
                 "Could not verify invite code uniqueness."
             )
-            if _response_data(existing) is None and code != current_code:
+            existing_data = _response_data(existing) or []
+            if len(existing_data) == 0 and code != current_code:
                 return code
         except AppError:
             raise
@@ -192,10 +193,12 @@ async def update_role(role_id: str | UUID, data: UpdateRoleSchema, current_admin
     db = get_supabase()
     company_id = _admin_company_id(current_admin)
 
-    existing = db.table("roles").select("*").eq("id", str(role_id)).eq("company_id", company_id).maybe_single().execute()
+    existing = db.table("roles").select("*").eq("id", str(role_id)).eq("company_id", company_id).execute()
 
     if not existing.data:
         raise AppError(404, "ROLE_NOT_FOUND", "Role not found or does not belong to your company.")
+
+    existing_role = existing.data[0]
 
     update_payload: dict[str, Any] = {}
     if data.role_name is not None:
@@ -205,8 +208,8 @@ async def update_role(role_id: str | UUID, data: UpdateRoleSchema, current_admin
     if data.grade_level is not None:
         update_payload["grade_level"] = data.grade_level
     if data.headcount_max is not None:
-        if data.headcount_max < existing.data["headcount_filled"]:
-            raise AppError(400, "HEADCOUNT_TOO_LOW", f"Cannot set max headcount below current filled count ({existing.data['headcount_filled']}).")
+        if data.headcount_max < existing_role["headcount_filled"]:
+            raise AppError(400, "HEADCOUNT_TOO_LOW", f"Cannot set max headcount below current filled count ({existing_role['headcount_filled']}).")
         update_payload["headcount_max"] = data.headcount_max
     if data.gross_salary is not None:
         update_payload["gross_salary"] = float(data.gross_salary)
@@ -220,7 +223,7 @@ async def update_role(role_id: str | UUID, data: UpdateRoleSchema, current_admin
         update_payload["work_type"] = data.work_type
 
     if not update_payload:
-        return {"success": True, "message": "No changes made.", "data": existing.data}
+        return {"success": True, "message": "No changes made.", "data": existing_role}
 
     update_payload["updated_at"] = datetime.now(timezone.utc).isoformat()
 
@@ -236,7 +239,7 @@ async def update_role(role_id: str | UUID, data: UpdateRoleSchema, current_admin
             "action": "UPDATE_ROLE",
             "target_id": str(role_id),
             "target_type": "role",
-            "metadata": {"before": existing.data, "after": update_payload},
+            "metadata": {"before": existing_role, "after": update_payload},
             "created_at": datetime.now(timezone.utc).isoformat(),
         }).execute()
     except Exception as audit_err:
@@ -249,13 +252,15 @@ async def delete_role(role_id: str | UUID, current_admin: dict[str, Any]) -> dic
     db = get_supabase()
     company_id = _admin_company_id(current_admin)
 
-    existing = db.table("roles").select("*").eq("id", str(role_id)).eq("company_id", company_id).maybe_single().execute()
+    existing = db.table("roles").select("*").eq("id", str(role_id)).eq("company_id", company_id).execute()
 
     if not existing.data:
         raise AppError(404, "ROLE_NOT_FOUND", "Role not found.")
 
-    if existing.data["headcount_filled"] > 0:
-        raise AppError(400, "ROLE_HAS_WORKERS", f"Cannot delete a role with {existing.data['headcount_filled']} active worker(s). Reassign them first.")
+    existing_role = existing.data[0]
+
+    if existing_role["headcount_filled"] > 0:
+        raise AppError(400, "ROLE_HAS_WORKERS", f"Cannot delete a role with {existing_role['headcount_filled']} active worker(s). Reassign them first.")
 
     db.table("roles").delete().eq("id", str(role_id)).execute()
 
@@ -266,13 +271,13 @@ async def delete_role(role_id: str | UUID, current_admin: dict[str, Any]) -> dic
             "action": "DELETE_ROLE",
             "target_id": str(role_id),
             "target_type": "role",
-            "metadata": {"role_name": existing.data["role_name"]},
+            "metadata": {"role_name": existing_role["role_name"]},
             "created_at": datetime.now(timezone.utc).isoformat(),
         }).execute()
     except Exception as audit_err:
         print(f"Audit log failed for role deletion: {audit_err}")
 
-    return {"success": True, "message": f"Role '{existing.data['role_name']}' deleted."}
+    return {"success": True, "message": f"Role '{existing_role['role_name']}' deleted."}
 
 
 async def regenerate_invite_code(role_id: str | UUID, current_admin: dict[str, Any]) -> dict[str, Any]:
@@ -280,14 +285,15 @@ async def regenerate_invite_code(role_id: str | UUID, current_admin: dict[str, A
     company_id = _admin_company_id(current_admin)
 
     existing = _require_response(
-        db.table("roles").select("*").eq("id", str(role_id)).eq("company_id", company_id).maybe_single().execute(),
+        db.table("roles").select("*").eq("id", str(role_id)).eq("company_id", company_id).execute(),
         "DATABASE_QUERY_FAILED",
         "Could not fetch role. Please try again."
     )
 
-    existing_role = _response_data(existing)
-    if not existing_role:
+    existing_role_data = _response_data(existing) or []
+    if len(existing_role_data) == 0:
         raise AppError(404, "ROLE_NOT_FOUND", "Role not found.")
+    existing_role = existing_role_data[0]
 
     company_result = _require_response(
         db.table("companies").select("name").eq("id", company_id).single().execute(),

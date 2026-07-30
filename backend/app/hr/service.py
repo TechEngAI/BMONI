@@ -45,8 +45,8 @@ def _require_row(data: Any, code: str, message: str) -> dict[str, Any]:
 def _email_in_use(email: str) -> bool:
     db = get_supabase()
     for table in ("admins", "workers", "hr_officers"):
-        result = db.table(table).select("id").eq("email", email).maybe_single().execute()
-        if getattr(result, "data", None):
+        result = db.table(table).select("id").eq("email", email).execute()
+        if result.data and len(result.data) > 0:
             return True
     return False
 

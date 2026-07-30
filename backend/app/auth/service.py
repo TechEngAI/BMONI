@@ -132,28 +132,28 @@ def _user_email(user: Any, fallback: str | None = None) -> str | None:
 
 def _email_exists(table: str, email: str) -> bool:
     try:
-        result = get_supabase().table(table).select("id").eq("email", email.lower()).maybe_single().execute()
+        result = get_supabase().table(table).select("id").eq("email", email.lower()).execute()
     except Exception as exc:
         print(f"Email existence check failed for {table}: {exc}")
         return False
     if result is None:
         print(f"Email existence check returned no response for {table}; continuing signup.")
         return False
-    return bool(result.data)
+    return bool(result.data and len(result.data) > 0)
 
 
 def _phone_exists(table: str, phone_number: str | None) -> bool:
     if not phone_number:
         return False
     try:
-        result = get_supabase().table(table).select("id").eq("phone_number", phone_number).maybe_single().execute()
+        result = get_supabase().table(table).select("id").eq("phone_number", phone_number).execute()
     except Exception as exc:
         print(f"Phone existence check failed for {table}: {exc}")
         return False
     if result is None:
         print(f"Phone existence check returned no response for {table}; continuing signup.")
         return False
-    return bool(result.data)
+    return bool(result.data and len(result.data) > 0)
 
 
 def _require_inserted(row: Any, code: str, message: str) -> Any:
@@ -193,6 +193,7 @@ async def register_admin(payload: AdminRegisterRequest) -> dict[str, Any]:
         )
         auth_user_id = _auth_user_id(auth_response)
     except Exception as exc:
+        print(f"Admin sign_up failed for {email}: {exc}")
         raise AppError(400, "AUTH_SIGNUP_FAILED", "Unable to create Supabase Auth user.") from exc
 
     try:
@@ -236,13 +237,13 @@ async def register_worker(payload: WorkerRegisterRequest) -> dict[str, Any]:
     db = get_supabase()
     email = str(payload.email).lower()
     try:
-        role_result = db.table("roles").select("*").eq("invite_code", payload.invite_code).eq("code_active", True).maybe_single().execute()
+        role_result = db.table("roles").select("*").eq("invite_code", payload.invite_code).eq("code_active", True).execute()
     except Exception as exc:
         print(f"Invite code lookup failed: {exc}")
         raise AppError(400, "INVALID_INVITE_CODE", "Invalid or expired invite code.", "invite_code") from exc
     if role_result is None or not role_result.data:
         raise AppError(400, "INVALID_INVITE_CODE", "Invalid or expired invite code.", "invite_code")
-    role = role_result.data
+    role = role_result.data[0]
     if int(role["headcount_filled"]) >= int(role["headcount_max"]):
         raise AppError(400, "ROLE_FULL", "This role has no available headcount slots.")
     if _email_exists("workers", email):
@@ -275,11 +276,11 @@ async def register_worker(payload: WorkerRegisterRequest) -> dict[str, Any]:
         worker_result = db.table("workers").insert(jsonable_encoder(worker_payload)).execute()
         if worker_result is None:
             print(f"Worker insert returned no response for {email}; checking whether the profile was created.")
-            lookup_result = db.table("workers").select("*").eq("auth_user_id", auth_user_id).maybe_single().execute()
-            worker = lookup_result.data if lookup_result is not None else None
+            lookup_result = db.table("workers").select("*").eq("auth_user_id", auth_user_id).execute()
+            worker = lookup_result.data[0] if lookup_result is not None and lookup_result.data else None
             if not worker:
-                lookup_result = db.table("workers").select("*").eq("email", email).maybe_single().execute()
-                worker = lookup_result.data if lookup_result is not None else None
+                lookup_result = db.table("workers").select("*").eq("email", email).execute()
+                worker = lookup_result.data[0] if lookup_result is not None and lookup_result.data else None
             if not worker:
                 raise AppError(500, "DATABASE_INSERT_FAILED", "Could not create worker profile. Please try again.")
         else:
