@@ -72,3 +72,4 @@ pnpm-debug.log*
 # Railway/local deployment caches
 .railway/
 .nixpacks/
+# and others
