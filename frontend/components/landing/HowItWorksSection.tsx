@@ -9,7 +9,7 @@ export function HowItWorksSection() {
   const steps = [
     { icon: MapPin, title: "Workers verify location", body: "GPS geofencing ensures workers physically check in from the office. Remote spoofing is detected instantly." },
     { icon: Brain, title: "AI scores every worker", body: "Our ML analyses signals across attendance, banking, and behaviour. Every worker gets a real-time Trust Score." },
-    { icon: CreditCard, title: "Squad pays verified list", body: "HR approves the clean list. Squad API disburses salary directly to verified and active bank accounts." },
+    { icon: CreditCard, title: "BMONI pays verified list", body: "HR approves the clean list. BMONI API disburses salary directly to verified and active bank accounts." },
   ];
 
   return (

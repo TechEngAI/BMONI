@@ -35,13 +35,13 @@ export function ApprovalConfirmModal({
           <Summary label="Workers to be paid" value={workersToPay} className="bg-green-50 text-green-700" />
           <Summary label="Workers excluded" value={Number(runSummary.excluded_count || 0)} className="bg-red-50 text-red-700" />
           <Summary label="Estimated total payout" value={formatNGN(Number(runSummary.estimated_total_payout || 0))} className="bg-teal-50 text-teal-700" />
-          <Summary label="Payment method" value="Squad API - Direct bank transfer" className="bg-slate-50 text-slate-700" />
+          <Summary label="Payment method" value="BMONI API - Direct bank transfer" className="bg-slate-50 text-slate-700" />
         </div>
 
         <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
           <p>
-            This action cannot be undone. Salaries will be disbursed immediately to all included workers via Squad.
+            This action cannot be undone. Salaries will be disbursed immediately to all included workers via BMONI.
             Make sure you have reviewed all flagged workers.
           </p>
         </div>

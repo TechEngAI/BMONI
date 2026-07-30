@@ -2,38 +2,41 @@
 
 AI-powered ghost worker detection and payroll fraud prevention for Nigerian businesses.
 
-GhostGuard combines GPS attendance, device fingerprinting, Squad payment rails, and a machine learning anomaly engine to flag suspicious payroll behavior before salaries are disbursed.
+GhostGuard combines GPS attendance, device fingerprinting, IP geolocation, BMONI payment rails, and a machine learning anomaly engine to flag suspicious payroll behavior before salaries are disbursed — protecting the payroll pool so every worker gets paid correctly.
 
 ## What it does
 
-- Detects ghost workers, proxy check-ins, and impossible travel using GPS and fingerprinting.
-- Uses an Isolation Forest ML model to score payroll risk and generate trust verdicts.
-- Integrates with Squad for bank account verification, wallet deposits, and payroll disbursements.
+- Detects ghost workers, proxy check-ins, and impossible travel using GPS and attendance patterns (physical workers).
+- Detects device-fingerprint reuse, IP reuse, and impossible-travel patterns for remote workers.
+- Uses a batch-scored Isolation Forest ML model to score payroll risk and generate trust verdicts across the full worker pool.
+- Integrates with BMONI for bank account verification, smart wallet funding, and payroll disbursement.
 - Supports Admin, HR, and Worker workflows with role-based access.
 
 ## Repo structure
 
-- `backend/` — FastAPI backend, Supabase integration, Squad payment orchestration, fraud scoring, and API endpoints.
+- `backend/` — FastAPI backend, Supabase integration, BMONI payment orchestration, fraud/risk scoring, and API endpoints.
 - `frontend/` — Next.js 14 App Router frontend for auth, dashboards, attendance, HR review, and admin controls.
-- `docs/` — Project documentation and pitch slide guidance.
 
 ## Key features
 
-- GPS geofencing and attendance validation
-- Device fingerprinting and buddy-punch detection
-- Squad bank account lookup and transaction flows
-- HR invite flow with Supabase email redirects
-- Payroll run scoring with fraud signal analysis
-- Wallet deposit and payout management
+- GPS geofencing and attendance validation (physical workers)
+- Device fingerprinting and buddy-punch detection (physical workers)
+- Device fingerprinting, IP-reuse, and impossible-travel detection (remote workers)
+- BMONI bank account verification, smart wallet, and payout disbursement flows
+- Async payout status resolution (BMONI payouts resolve pending → success/failed) with a polling fallback for status confirmation
+- HR invite-code flow (admin generates code → HR enters code to register)
+- Payroll run scoring with fraud signal analysis, run once per payroll batch across all workers
+- Wallet funding and payout management
 - Audit logs and multi-tenant company isolation
+- Disclosed (non-covert) device/location data collection notice for remote workers
 
 ## Tech stack
 
 - Frontend: Next.js 14, TypeScript, Tailwind CSS
 - Backend: FastAPI, Python, Pydantic
 - Database/Auth: Supabase PostgreSQL + Supabase Auth
-- ML: scikit-learn Isolation Forest
-- Payments: Squad API
+- ML: scikit-learn Isolation Forest (batch-scored)
+- Payments: BMONI API (bank verification, smart wallet, offramp/disbursement)
 - Deployment: Vercel + Railway
 
 ## Getting started
@@ -58,26 +61,6 @@ cp .env.local.example .env.local
 npm run dev
 ```
 
-## Environment variables
-
-Required backend variables:
-
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_KEY`
-- `SQUAD_SECRET_KEY`
-- `SQUAD_PUBLIC_KEY`
-- `SQUAD_MERCHANT_ID`
-- `SQUAD_BASE_URL`
-- `SQUAD_CALLBACK_URL`
-- `SQUAD_WEBHOOK_SECRET`
-- `FRONTEND_URL`
-
-Required frontend variables:
-
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `NEXT_PUBLIC_API_URL`
-
 ## Documentation
 
 - `docs/TECHNICAL.md` — full technical architecture and backend flow summary
@@ -85,8 +68,9 @@ Required frontend variables:
 
 ## Notes
 
-- HR invites use Supabase invite links redirected to `/auth/confirm` and then to `/hr/accept-invite`.
-- Squad deposit flows require `initiate_type: inline` for checkout initiation.
+- HR invites use an invite-code flow (admin generates a code, HR enters it to register) rather than email redirect links.
+- BMONI uses 3-digit CBN bank codes (e.g. `058`, `044`), not 6-digit padded codes.
+- BMONI payouts are asynchronous; status is confirmed via a polling endpoint (`POST /admin/payroll/receipts/{receipt_id}/refresh-status`) rather than a webhook, since no public webhook endpoint is reachable from localhost.
 - The backend links Supabase auth users to application profiles for admins, workers, and HR officers.
 
 ## Contact

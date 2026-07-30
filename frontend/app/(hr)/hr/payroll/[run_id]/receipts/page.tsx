@@ -77,7 +77,7 @@ export default function PayrollReceiptsPage({ params }: { params: { run_id: stri
       </div>
 
       {receipts.length === 0 ? (
-        <EmptyState icon={Receipt} title="No receipts yet" description="Receipts will appear here once Squad begins processing this payroll run." />
+        <EmptyState icon={Receipt} title="No receipts yet" description="Receipts will appear here once BMONI begins processing this payroll run." />
       ) : (
         <ReceiptsTable receipts={receipts} onRetry={retry} />
       )}

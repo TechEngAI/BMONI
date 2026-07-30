@@ -7,7 +7,7 @@ import SidebarBase from "./SidebarBase";
 const nav = [
   { label: "Dashboard", href: "/hr/dashboard", icon: LayoutDashboard },
   { label: "Payroll", href: "/hr/payroll", icon: FileText },
-  { label: "Receipts", href: "/hr/payroll", icon: Receipt },
+  { label: "Receipts", href: "/hr/receipts", icon: Receipt },
 ];
 
 export function SidebarHr() {

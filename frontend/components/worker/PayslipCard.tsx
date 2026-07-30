@@ -92,7 +92,7 @@ export function PayslipCard({ payslip }: { payslip: PayslipData }) {
           <h3 className="text-lg font-black text-teal-900">Payment Confirmation</h3>
           <div className="mt-4 space-y-3 text-sm">
             <div>
-              <p className="text-xs font-black uppercase tracking-widest text-teal-700">Squad Reference</p>
+              <p className="text-xs font-black uppercase tracking-widest text-teal-700">BMONI Reference</p>
               <div className="mt-1 flex items-center gap-2">
                 <span className="break-all font-mono font-bold">{payslip.squad_tx_id || "Pending"}</span>
                 {payslip.squad_tx_id && <button onClick={copyTx} className="no-print rounded-md border border-teal-200 p-1 text-teal-800"><Copy className="h-3.5 w-3.5" /></button>}
@@ -100,7 +100,7 @@ export function PayslipCard({ payslip }: { payslip: PayslipData }) {
               {copied && <p className="no-print mt-1 text-xs font-bold text-green-700">Copied</p>}
             </div>
             <p><strong>Status:</strong> <span className={status === "PAID" ? "text-green-700" : "text-amber-700"}>{status}</span></p>
-            <p><strong>Paid via:</strong> Squad API - Direct Bank Transfer</p>
+            <p><strong>Paid via:</strong> BMONI API - Direct Bank Transfer</p>
             <p><strong>Bank:</strong> {payslip.bank_name || "-"} - {payslip.masked_account_number || "****"}</p>
             <p><strong>Date:</strong> {payslip.paid_at ? format(new Date(payslip.paid_at), "dd MMMM yyyy 'at' h:mm a") : "Pending"}</p>
           </div>

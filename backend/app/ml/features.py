@@ -7,6 +7,7 @@ import numpy as np
 
 from app.database import get_supabase
 from app.errors import AppError
+from app.remote_checkin.service import calculate_impossible_travel
 
 
 def working_days_in_month(month_year: str) -> int:
@@ -118,4 +119,84 @@ async def compute_company_features(company_id: str, month_year: str) -> list[dic
 
     workers = get_supabase().table("workers").select("id").eq("company_id", company_id).eq("status", "ACTIVE").execute().data
     return [await compute_worker_features(worker["id"], company_id, month_year) for worker in workers]
+
+
+async def extract_remote_features(worker_id: str) -> dict[str, Any]:
+    """Extract remote-worker-specific features for risk scoring.
+
+    Returns all values as None/False when there are zero check-ins (new worker).
+    None values signal "insufficient data" — the caller decides how to handle them.
+    """
+    db = get_supabase()
+    rows = (
+        db.table("remote_checkins")
+        .select("*")
+        .eq("worker_id", worker_id)
+        .order("checked_in_at", desc=True)
+        .execute()
+        .data
+    )
+
+    if not rows:
+        return {
+            "worker_id": worker_id,
+            "checkin_time_std_dev": None,
+            "device_fingerprint_reuse_count": 0,
+            "ip_reuse_across_workers": 0,
+            "impossible_travel_flag": False,
+        }
+
+    checkin_hours = []
+    for r in rows:
+        dt = _parse_dt(r.get("checked_in_at"))
+        if dt:
+            checkin_hours.append(dt.hour + dt.minute / 60.0)
+
+    checkin_time_std_dev = round(stdev(checkin_hours), 4) if len(checkin_hours) >= 3 else None
+
+    most_recent = rows[0]
+    recent_fingerprint = most_recent.get("device_fingerprint")
+    if recent_fingerprint:
+        reuse = (
+            db.table("remote_checkins")
+            .select("worker_id")
+            .eq("device_fingerprint", recent_fingerprint)
+            .neq("worker_id", worker_id)
+            .execute()
+            .data
+        )
+        device_fingerprint_reuse_count = len({r["worker_id"] for r in reuse})
+    else:
+        device_fingerprint_reuse_count = 0
+
+    recent_ip = most_recent.get("ip_address")
+    recent_time = _parse_dt(most_recent.get("checked_in_at"))
+    ip_reuse_across_workers = 0
+    if recent_ip and recent_time:
+        window_start = (recent_time - timedelta(hours=12)).isoformat()
+        window_end = (recent_time + timedelta(hours=12)).isoformat()
+        same_ip_rows = (
+            db.table("remote_checkins")
+            .select("worker_id")
+            .eq("ip_address", recent_ip)
+            .neq("worker_id", worker_id)
+            .gte("checked_in_at", window_start)
+            .lte("checked_in_at", window_end)
+            .execute()
+            .data
+        )
+        ip_reuse_across_workers = len({r["worker_id"] for r in same_ip_rows})
+    else:
+        ip_reuse_across_workers = 0
+
+    travel = await calculate_impossible_travel(worker_id)
+    impossible_travel_flag = travel.get("impossible_travel", False)
+
+    return {
+        "worker_id": worker_id,
+        "checkin_time_std_dev": checkin_time_std_dev,
+        "device_fingerprint_reuse_count": device_fingerprint_reuse_count,
+        "ip_reuse_across_workers": ip_reuse_across_workers,
+        "impossible_travel_flag": impossible_travel_flag,
+    }
 

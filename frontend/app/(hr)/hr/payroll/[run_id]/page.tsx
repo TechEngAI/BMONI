@@ -9,7 +9,7 @@ import { DisbursementTracker } from "@/components/hr/DisbursementTracker";
 import { WorkerResultCard } from "@/components/hr/WorkerResultCard";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 import { Skeleton } from "@/components/shared/Skeleton";
-import { approvePayroll, getHrPayrollResults, getWalletBalance, unwrapError } from "@/lib/api";
+import { approvePayroll, getHrPayrollResults, getHrWalletBalance, unwrapError } from "@/lib/api";
 import { formatNGN, unwrapData } from "@/lib/utils";
 
 const order = { FLAGGED: 0, SUSPICIOUS: 1, VERIFIED: 2 } as Record<string, number>;
@@ -32,7 +32,7 @@ export default function HrPayrollReviewPage({ params }: { params: { run_id: stri
     try {
       const [payrollResponse, balanceResponse] = await Promise.all([
         getHrPayrollResults(params.run_id),
-        getWalletBalance()
+        getHrWalletBalance()
       ]);
       const payrollData = unwrapData<any>(payrollResponse);
       const balanceData = unwrapData<any>(balanceResponse);
@@ -58,13 +58,14 @@ export default function HrPayrollReviewPage({ params }: { params: { run_id: stri
     () => results.filter((row) => tab === "ALL" || row.verdict === tab).sort((a, b) => (order[a.verdict] ?? 9) - (order[b.verdict] ?? 9)),
     [results, tab],
   );
+  const payInclude = (row: any) => row.hr_decision === "INCLUDE" || ((row.hr_decision || "PENDING") === "PENDING" && row.verdict === "VERIFIED");
   const pending = results.filter((row) => ["FLAGGED", "SUSPICIOUS"].includes(row.verdict) && (row.hr_decision || "PENDING") === "PENDING").length;
   const runSummary = {
     total_workers: run?.total_workers || results.length,
     verified_count: run?.verified_count ?? results.filter((row) => row.verdict === "VERIFIED").length,
-    included_count: run?.included_count ?? results.filter((row) => ["INCLUDED", "APPROVED"].includes(row.hr_decision)).length,
-    excluded_count: run?.excluded_count ?? results.filter((row) => ["EXCLUDED", "REJECTED"].includes(row.hr_decision)).length,
-    estimated_total_payout: run?.estimated_total_payout ?? results.reduce((sum, row) => sum + Number(row.net_pay || row.net_salary || row.salary || 0), 0),
+    included_count: results.filter(payInclude).length,
+    excluded_count: results.filter((row) => row.hr_decision === "EXCLUDE").length,
+    estimated_total_payout: results.filter(payInclude).reduce((sum, row) => sum + Number(row.net_pay || 0), 0),
     month_year: run?.month_year,
   };
 

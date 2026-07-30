@@ -16,7 +16,7 @@ export function ApprovePayrollButton({ runId, pendingCount, onApproved }: { runI
         open={open}
         onClose={() => setOpen(false)}
         title="Approve payroll?"
-        description="Approving payroll will trigger salary disbursement for all included workers via Squad. This cannot be undone."
+        description="Approving payroll will trigger salary disbursement for all included workers via BMONI. This cannot be undone."
         confirmLabel="Approve"
         onConfirm={async () => {
           try {

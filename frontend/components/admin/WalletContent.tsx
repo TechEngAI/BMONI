@@ -177,7 +177,7 @@ export function WalletContent() {
 
             {/* Footer Note */}
             <p className="mt-4 text-xs text-center text-ink-secondary">
-              Powered by Squad. Your payment is secured by GTBank's infrastructure.
+              Powered by BMONI.
             </p>
 
             {/* Close Button */}

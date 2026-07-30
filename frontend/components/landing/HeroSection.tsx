@@ -66,7 +66,7 @@ export function HeroSection() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
             </span>
-            Powered by Squad API
+            Powered by BMONI API
           </motion.div>
 
           <h1 className="text-6xl font-black leading-[1.05] md:text-8xl tracking-tight text-ink dark:text-white">
@@ -85,7 +85,7 @@ export function HeroSection() {
             variants={item}
             className="mt-8 max-w-xl text-lg leading-relaxed text-ink-secondary dark:text-gray-400 font-medium"
           >
-            GhostGuard uses GPS verification, AI anomaly detection, and Squad-powered payroll to eliminate ghost workers from your payroll automatically.
+            GhostGuard uses GPS verification, AI anomaly detection, and BMONI-powered payroll to eliminate ghost workers from your payroll automatically.
           </motion.p>
 
           <motion.div 

@@ -60,7 +60,7 @@ export default function WorkerPayslipPage() {
       <div className="no-print mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-black">Payslip</h1>
-          <p className="mt-1 text-sm text-ink-secondary">Your payroll receipt and Squad payment confirmation.</p>
+          <p className="mt-1 text-sm text-ink-secondary">Your payroll receipt and BMONI payment confirmation.</p>
         </div>
         {payslip && (
           <div className="flex flex-wrap gap-2">

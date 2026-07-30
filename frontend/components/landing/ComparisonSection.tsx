@@ -8,7 +8,7 @@ const features = [
   { name: "Bank Account Anomaly Detection", ghostguard: true, manual: false, legacy: false },
   { name: "Device Fingerprinting", ghostguard: true, manual: false, legacy: false },
   { name: "Real-time Fraud Alerts", ghostguard: true, manual: false, legacy: "Delayed" },
-  { name: "Squad API Integration", ghostguard: true, manual: false, legacy: false },
+  { name: "BMONI API Integration", ghostguard: true, manual: false, legacy: false },
   { name: "Automated Trust Scoring", ghostguard: true, manual: false, legacy: false },
   { name: "Detection Speed", ghostguard: "Instant", manual: "Weeks", legacy: "Days" },
 ];

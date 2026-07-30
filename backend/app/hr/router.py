@@ -2,12 +2,13 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel, EmailStr
 
 from app.dependencies import get_current_admin, get_current_hr
-from app.errors import success_response
+from app.errors import AppError, success_response
 from app.auth.schemas import RefreshRequest
 from app.hr import service
-from app.hr.schemas import HRCreateRequest, HRForgotPasswordRequest, HRLoginRequest, HRResetPasswordRequest, UpdateReceiptDecisionRequest
+from app.hr.schemas import HRCreateRequest, HRForgotPasswordRequest, HRLoginRequest, HRRegisterWithCodeRequest, HRResetPasswordRequest, UpdateReceiptDecisionRequest
 
 router = APIRouter(tags=["hr"])
 
@@ -15,7 +16,7 @@ router = APIRouter(tags=["hr"])
 @router.post("/admin/hr/create")
 async def create_hr(payload: HRCreateRequest, admin: dict[str, Any] = Depends(get_current_admin)):
     data = await service.create_hr_officer(admin, payload)
-    return success_response(data, f"HR officer invitation sent to {payload.email}")
+    return success_response(data, "HR officer invite code generated.")
 
 
 @router.get("/admin/hr")
@@ -36,6 +37,42 @@ async def reactivate_hr(hr_id: UUID, admin: dict[str, Any] = Depends(get_current
 @router.delete("/admin/hr/{hr_id}")
 async def delete_hr(hr_id: UUID, admin: dict[str, Any] = Depends(get_current_admin)):
     return success_response(await service.delete_hr(admin, hr_id), "HR officer deleted.")
+
+
+@router.post("/auth/hr/register-with-code")
+async def hr_register_with_code(payload: HRRegisterWithCodeRequest):
+    data = await service.register_hr_with_code(payload)
+    return success_response(data, "Account created. Check your email to verify.")
+
+
+class OtpVerifyRequest(BaseModel):
+    email: EmailStr
+    otp: str | None = None
+    token_hash: str | None = None
+
+    def validate(self) -> None:
+        if not self.otp and not self.token_hash:
+            raise AppError(400, "VALIDATION_ERROR", "Verification code or token_hash is required.")
+        if self.otp and not self.email:
+            raise AppError(400, "VALIDATION_ERROR", "Email is required when verifying with an OTP code.")
+
+
+@router.post("/auth/hr/verify-otp")
+async def hr_verify_otp(payload: OtpVerifyRequest):
+    payload.validate()
+    return success_response(
+        await service.verify_hr_otp(str(payload.email).lower(), payload.otp or "", payload.token_hash),
+        "Account verified successfully.",
+    )
+
+
+class ResendOtpRequest(BaseModel):
+    email: EmailStr
+
+
+@router.post("/auth/hr/resend-otp")
+async def hr_resend_otp(payload: ResendOtpRequest):
+    return success_response(await service.resend_hr_otp(str(payload.email).lower()), "Verification email resent.")
 
 
 @router.post("/auth/hr/login")
@@ -80,4 +117,4 @@ async def update_receipt_decision(receipt_id: UUID, payload: UpdateReceiptDecisi
 
 @router.post("/hr/receipts/{receipt_id}/requery")
 async def requery_receipt_status(receipt_id: UUID, hr: dict[str, Any] = Depends(get_current_hr)):
-    return success_response(await service.requery_receipt_status(hr, receipt_id), "Receipt status requeried from Squad.")
+    return success_response(await service.requery_receipt_status(hr, receipt_id), "Receipt status requeried.")

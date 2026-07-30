@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     squad_account_lookup_path: str = Field("/account/lookup", alias="SQUAD_ACCOUNT_LOOKUP_PATH")
     bmoni_base_url: str = Field(..., alias="BMONI_BASE_URL")
     bmoni_api_key: str = Field(..., alias="BMONI_API_KEY")
+    bmoni_user_id: str = Field(..., alias="BMONI_USER_ID")
     environment: str = Field("development", alias="ENVIRONMENT")
     frontend_url: str = Field("http://localhost:3000", alias="FRONTEND_URL")
 

@@ -18,7 +18,7 @@ export function DisbursementTracker({ runId, onComplete }: { runId: string; onCo
     const data = unwrapData<any>(response);
     const rows = data.receipts || data.items || data || [];
     setReceipts(Array.isArray(rows) ? rows : []);
-    const done = rows.length > 0 && rows.every((receipt: any) => (receipt.squad_status || receipt.status) !== "PENDING");
+    const done = rows.length > 0 && rows.every((receipt: any) => (receipt.bmoni_status || receipt.squad_status || receipt.status) !== "PENDING");
     if (done) {
       setCompleted(true);
       onComplete();
@@ -38,9 +38,10 @@ export function DisbursementTracker({ runId, onComplete }: { runId: string; onCo
   }, [runId, completed]);
 
   const stats = useMemo(() => {
-    const paid = receipts.filter((r) => (r.squad_status || r.status) === "PAID");
-    const pending = receipts.filter((r) => (r.squad_status || r.status) === "PENDING");
-    const failed = receipts.filter((r) => (r.squad_status || r.status) === "FAILED");
+    const statusVal = (r: any) => r.bmoni_status || r.squad_status || r.status;
+    const paid = receipts.filter((r) => statusVal(r) === "PAID");
+    const pending = receipts.filter((r) => statusVal(r) === "PENDING");
+    const failed = receipts.filter((r) => statusVal(r) === "FAILED");
     return {
       paid: paid.length,
       pending: pending.length,
@@ -82,11 +83,11 @@ export function DisbursementTracker({ runId, onComplete }: { runId: string; onCo
         <Counter label="Failed" value={stats.failed} className="bg-red-50 text-red-700" />
       </div>
 
-      {completed && stats.failed > 0 && <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm font-semibold text-amber-800">{stats.failed} payments failed. Use the retry button or contact Squad support.</p>}
+      {completed && stats.failed > 0 && <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm font-semibold text-amber-800">{stats.failed} payments failed. Use the retry button or contact BMONI support.</p>}
 
       <div className="mt-6 divide-y divide-border overflow-hidden rounded-xl border border-border">
         {receipts.map((receipt) => {
-          const status = receipt.squad_status || receipt.status;
+          const status = receipt.bmoni_status || receipt.squad_status || receipt.status;
           return (
             <div key={receipt.id || receipt.receipt_id || receipt.worker_id} className="grid gap-3 p-4 sm:grid-cols-[1fr_auto_180px] sm:items-center">
               <div>
@@ -98,7 +99,7 @@ export function DisbursementTracker({ runId, onComplete }: { runId: string; onCo
             </div>
           );
         })}
-        {receipts.length === 0 && <p className="p-8 text-center text-sm text-ink-secondary">Waiting for Squad payment receipts for {monthYear}...</p>}
+        {receipts.length === 0 && <p className="p-8 text-center text-sm text-ink-secondary">Waiting for BMONI payment receipts for {monthYear}...</p>}
       </div>
     </section>
   );

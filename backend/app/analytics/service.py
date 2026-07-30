@@ -20,7 +20,7 @@ async def summary(admin: dict[str, Any]) -> dict[str, Any]:
     workers = db.table("workers").select("id").eq("company_id", company_id).eq("status", "ACTIVE").execute().data
     runs = db.table("payroll_runs").select("id").eq("company_id", company_id).execute().data
     results = db.table("ghost_analysis_results").select("*, workers(roles(gross_salary))").eq("company_id", company_id).execute().data
-    receipts = db.table("payment_receipts").select("net_pay, squad_status").eq("company_id", company_id).execute().data
+    receipts = db.table("payment_receipts").select("net_pay, bmoni_status").eq("company_id", company_id).execute().data
     signals = db.table("fraud_signals").select("signal_type").eq("company_id", company_id).execute().data
     signal_counts = Counter(row.get("signal_type") for row in signals if row.get("signal_type"))
     most_common = None
@@ -34,7 +34,7 @@ async def summary(admin: dict[str, Any]) -> dict[str, Any]:
         "total_ghosts_detected": sum(1 for row in results if row.get("verdict") == "FLAGGED"),
         "total_excluded_workers": len(excluded),
         "total_salary_saved": round(sum(_money(((row.get("workers") or {}).get("roles") or {}).get("gross_salary") or row.get("gross_salary")) for row in excluded), 2),
-        "total_disbursed": round(sum(_money(row.get("net_pay")) for row in receipts if row.get("squad_status") == "PAID"), 2),
+                "total_disbursed": round(sum(_money(row.get("net_pay")) for row in receipts if row.get("bmoni_status") == "PAID"), 2),
         "fraud_signal_count": len(signals),
         "most_common_signal": most_common,
     }
@@ -46,7 +46,7 @@ async def payroll_history(admin: dict[str, Any]) -> dict[str, Any]:
     history = []
     for run in runs:
         results = db.table("ghost_analysis_results").select("*, workers(roles(gross_salary))").eq("payroll_run_id", run["id"]).execute().data
-        receipts = db.table("payment_receipts").select("net_pay, squad_status").eq("payroll_run_id", run["id"]).execute().data
+        receipts = db.table("payment_receipts").select("net_pay, bmoni_status").eq("payroll_run_id", run["id"]).execute().data
         excluded = [row for row in results if row.get("hr_decision") == "EXCLUDE"]
         history.append(
             {
@@ -57,7 +57,7 @@ async def payroll_history(admin: dict[str, Any]) -> dict[str, Any]:
                 "suspicious_count": sum(1 for row in results if row.get("verdict") == "SUSPICIOUS") or run.get("suspicious_count"),
                 "verified_count": sum(1 for row in results if row.get("verdict") == "VERIFIED") or run.get("verified_count"),
                 "excluded_count": len(excluded),
-                "total_disbursed": round(sum(_money(row.get("net_pay")) for row in receipts if row.get("squad_status") == "PAID"), 2),
+        "total_disbursed": round(sum(_money(row.get("net_pay")) for row in receipts if row.get("bmoni_status") == "PAID"), 2),
                 "salary_saved": round(sum(_money(((row.get("workers") or {}).get("roles") or {}).get("gross_salary") or row.get("gross_salary")) for row in excluded), 2),
             }
         )

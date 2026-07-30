@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { CheckInCard } from "@/components/worker/CheckInCard";
+import { DataDisclosureBanner } from "@/components/worker/DataDisclosureBanner";
 import { GpsStatusIndicator } from "@/components/worker/GpsStatusIndicator";
-import { checkIn, checkOut, getTodayAttendance, getWorkerProfile, unwrapError } from "@/lib/api";
+import { checkIn, checkOut, getTodayAttendance, getWorkerProfile, remoteCheckIn, unwrapError } from "@/lib/api";
 import { unwrapData } from "@/lib/utils";
+import { generateDeviceFingerprint } from "@/lib/fingerprint";
 import { useDeviceFingerprint } from "@/hooks/useDeviceFingerprint";
 import { useGps } from "@/hooks/useGps";
 
@@ -31,16 +33,26 @@ export default function WorkerDashboardPage() {
 
   useEffect(() => {
     getLocation().catch(() => {}); // Initial location fetch
+    let cancelled = false;
     async function load() {
       try {
         const [todayRes, profileRes] = await Promise.all([getTodayAttendance(), getWorkerProfile()]);
+        if (cancelled) return;
+        const prof = unwrapData<any>(profileRes).worker || unwrapData<any>(profileRes);
+        setProfile(prof);
         setToday(unwrapData<any>(todayRes));
-        setProfile(unwrapData<any>(profileRes).worker || unwrapData<any>(profileRes));
+
+        if (prof?.work_mode === "remote") {
+          generateDeviceFingerprint().then((fingerprint) => {
+            remoteCheckIn({ device_fingerprint: fingerprint }).catch(() => {});
+          });
+        }
       } catch (error) {
         toast.error(unwrapError(error));
       }
     }
     load();
+    return () => { cancelled = true; };
   }, [getLocation]);
 
   const company = profile?.companies || profile?.company || {};
@@ -92,6 +104,7 @@ export default function WorkerDashboardPage() {
 
   return (
     <PageWrapper className="p-8 max-w-2xl mx-auto">
+      <DataDisclosureBanner />
       <div className="mb-10 text-center">
         <h1 className="text-4xl font-black tracking-tight text-ink">Worker Dashboard</h1>
         <p className="text-sm font-medium text-ink-secondary mt-1">

@@ -1,6 +1,8 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
+import random
+import string
 
 from fastapi.encoders import jsonable_encoder
 
@@ -13,9 +15,10 @@ from app.hr.schemas import (
     HRCreateRequest,
     HRForgotPasswordRequest,
     HRLoginRequest,
+    HRRegisterWithCodeRequest,
     HRResetPasswordRequest,
 )
-from app.squad.client import requery_transfer
+from app.bmoni.orchestrator import poll_pending_payout
 
 
 def _public_hr(hr: dict[str, Any]) -> dict[str, Any]:
@@ -56,51 +59,186 @@ def _is_email_not_verified_error(exc: Exception) -> bool:
     return "email not confirmed" in text or "email_not_confirmed" in text or "email not verified" in text
 
 
+def _generate_hr_code(company_name: str) -> str:
+    prefix = "".join(c for c in company_name.upper() if c.isalnum())[:4].ljust(4, "X")
+    suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    return f"GG-HR-{prefix}-{suffix}"
+
+
+def _unique_hr_code(db: Any, company_name: str) -> str:
+    max_attempts = 10
+    for attempt in range(max_attempts):
+        code = _generate_hr_code(company_name)
+        try:
+            existing = db.table("hr_invite_codes").select("id").eq("code", code).execute()
+            existing_data = existing.data if existing is not None else []
+            if len(existing_data) == 0:
+                return code
+        except Exception as exc:
+            raise AppError(500, "DATABASE_QUERY_FAILED", f"Could not verify HR code uniqueness: {exc}")
+        if attempt == max_attempts - 1:
+            raise AppError(500, "CODE_GENERATION_FAILED", "Could not generate unique HR code. Try again.")
+    raise AppError(500, "CODE_GENERATION_FAILED", "Could not generate unique HR code. Try again.")
+
+
+def _delete_auth_user_quietly(auth_user_id: str | None) -> None:
+    if not auth_user_id:
+        return
+    try:
+        get_supabase_admin_client().auth.admin.delete_user(auth_user_id)
+    except Exception as exc:
+        print(f"Failed to roll back Supabase auth user {auth_user_id}: {exc}")
+
+
 async def create_hr_officer(admin: dict[str, Any], payload: HRCreateRequest) -> dict[str, Any]:
     db = get_supabase()
-    settings = get_settings()
     email = str(payload.email).lower()
     if _email_in_use(email):
         raise AppError(409, "HR_ALREADY_EXISTS", "This email is already in use.", "email")
-    try:
-        invite = get_supabase_admin_client().auth.admin.invite_user_by_email(
-            email,
-            options={
-                "data": {"user_type": "hr", "company_id": admin["company_id"]},
-                "redirect_to": f"{settings.frontend_url}/auth/confirm",
-            },
-        )
-    except TypeError:
-        invite = get_supabase_admin_client().auth.admin.invite_user_by_email(
-            email,
-            {
-                "data": {"user_type": "hr", "company_id": admin["company_id"]},
-                "email_redirect_to": f"{settings.frontend_url}/hr/verify?email={email}",
-            },
-        )
-    except Exception as exc:
-        raise AppError(400, "AUTH_INVITE_FAILED", "Unable to send HR invitation.") from exc
 
-    hr_result = (
-        db.table("hr_officers")
-        .insert(
-            jsonable_encoder(
+    company_result = db.table("companies").select("name").eq("id", admin["company_id"]).limit(1).execute()
+    if not company_result.data:
+        raise AppError(404, "COMPANY_NOT_FOUND", "Admin company not found.")
+    company_name = company_result.data[0]["name"]
+
+    code = _unique_hr_code(db, company_name)
+    expires_at = (datetime.now(UTC) + timedelta(days=7)).isoformat()
+
+    insert_result = db.table("hr_invite_codes").insert(
+        jsonable_encoder(
+            {
+                "code": code,
+                "company_id": admin["company_id"],
+                "created_by_admin_id": admin["id"],
+                "first_name": payload.first_name,
+                "last_name": payload.last_name,
+                "email": email,
+                "phone_number": payload.phone_number,
+                "expires_at": expires_at,
+            }
+        )
+    ).execute()
+    _require_row(insert_result.data, "DATABASE_INSERT_FAILED", "Could not create HR invite. Please try again.")
+    await write_audit(admin["id"], "admin", "HR_INVITE_CREATED", None, None, {"email": email, "code": code})
+    return {"invite_code": code}
+
+
+async def register_hr_with_code(payload: HRRegisterWithCodeRequest) -> dict[str, Any]:
+    db = get_supabase()
+    settings = get_settings()
+    email = str(payload.email).lower()
+    code_str = str(payload.invite_code).strip()
+
+    invite_result = db.table("hr_invite_codes").select("*").eq("code", code_str).limit(1).execute()
+    if not invite_result.data:
+        raise AppError(400, "INVALID_INVITE_CODE", "Invalid invite code.", "invite_code")
+    invite = invite_result.data[0]
+
+    if invite.get("used_at"):
+        raise AppError(400, "INVITE_CODE_USED", "This invite code has already been used.", "invite_code")
+
+    expires_at = invite.get("expires_at")
+    if expires_at:
+        expires_at_dt = datetime.fromisoformat(str(expires_at).replace("Z", "+00:00"))
+        if datetime.now(UTC) > expires_at_dt:
+            raise AppError(400, "INVITE_CODE_EXPIRED", "This invite code has expired.", "invite_code")
+
+    if _email_in_use(email):
+        raise AppError(409, "EMAIL_ALREADY_EXISTS", "An account with this email already exists.", "email")
+
+    auth_user_id: str | None = None
+    try:
+        auth_response = get_supabase_auth_client().auth.sign_up(
+            {
+                "email": email,
+                "password": payload.password,
+                "options": {
+                    "data": {"user_type": "hr", "company_id": invite["company_id"]},
+                    "email_redirect_to": f"{settings.frontend_url}/hr/verify?email={email}",
+                },
+            }
+        )
+        auth_user_id = _auth_user_id(auth_response)
+    except Exception as exc:
+        print(f"HR sign_up failed for {email}: {exc}")
+        raise AppError(400, "AUTH_SIGNUP_FAILED", "Unable to create Supabase Auth user.") from exc
+
+    try:
+        hr_payload = {
+            "auth_user_id": auth_user_id,
+            "company_id": invite["company_id"],
+            "first_name": payload.first_name,
+            "last_name": payload.last_name,
+            "email": email,
+            "phone_number": payload.phone_number or invite.get("phone_number"),
+            "status": "ACTIVE",
+            "created_by": invite["created_by_admin_id"],
+        }
+        hr_result = db.table("hr_officers").insert(jsonable_encoder(hr_payload)).execute()
+        hr = _require_row(hr_result.data, "DATABASE_INSERT_FAILED", "Could not create HR profile. Please try again.")
+
+        update_result = db.table("hr_invite_codes").update(
+            {"used_at": datetime.now(UTC).isoformat(), "hr_officer_id": hr["id"]}
+        ).eq("id", invite["id"]).execute()
+        if update_result is None:
+            print(f"HR invite code update returned no response for {code_str}")
+
+        try:
+            get_supabase_auth_client().auth.resend(
                 {
-                    "auth_user_id": _auth_user_id(invite),
-                    "company_id": admin["company_id"],
-                    "first_name": payload.first_name,
-                    "last_name": payload.last_name,
+                    "type": "signup",
                     "email": email,
-                    "phone_number": payload.phone_number,
-                    "created_by": admin["id"],
+                    "options": {"email_redirect_to": f"{settings.frontend_url}/hr/verify?email={email}"},
                 }
             )
+        except Exception as otp_err:
+            print(f"HR signup OTP resend failed for {email}: {otp_err}")
+
+        await write_audit(hr["id"], "hr", "REGISTER_HR", hr["id"], "hr_officer", {})
+        return {"hr": _public_hr(hr)}
+    except AppError:
+        _delete_auth_user_quietly(auth_user_id)
+        raise
+    except Exception as exc:
+        _delete_auth_user_quietly(auth_user_id)
+        print(f"Registration error for HR {email}: {exc}")
+        raise AppError(500, "REGISTRATION_FAILED", "Registration failed. Please try again.") from exc
+
+
+async def verify_hr_otp(email: str, otp: str, token_hash: str | None = None) -> dict[str, Any]:
+    try:
+        if token_hash:
+            response = get_supabase_auth_client().auth.verify_otp(
+                {"token_hash": token_hash, "type": "signup"}
+            )
+        else:
+            response = get_supabase_auth_client().auth.verify_otp(
+                {"email": email, "token": otp, "type": "signup"}
+            )
+    except Exception as exc:
+        raise AppError(400, "INVALID_OTP", "Invalid or expired verification code.") from exc
+    session = _session(response)
+    return {
+        "access_token": session.access_token,
+        "refresh_token": session.refresh_token,
+        "token_type": "bearer",
+        "user_type": "hr",
+    }
+
+
+async def resend_hr_otp(email: str) -> dict[str, Any]:
+    email = email.lower()
+    try:
+        get_supabase_auth_client().auth.resend(
+            {
+                "type": "signup",
+                "email": email,
+                "options": {"email_redirect_to": f"{get_settings().frontend_url}/hr/verify?email={email}"},
+            }
         )
-        .execute()
-    )
-    hr = _require_row(hr_result.data, "DATABASE_INSERT_FAILED", "Could not create HR profile. Please try again.")
-    await write_audit(admin["id"], "admin", "HR_OFFICER_CREATED", hr["id"], "hr_officer", {"email": email})
-    return {"hr_officer": hr}
+    except Exception as exc:
+        raise AppError(400, "OTP_RESEND_FAILED", "Unable to resend verification email.") from exc
+    return {"sent": True}
 
 
 async def list_hr_officers(admin: dict[str, Any]) -> dict[str, Any]:
@@ -250,7 +388,7 @@ async def list_payment_receipts(hr: dict[str, Any], page: int = 1, per_page: int
     result = (
         db.table("payment_receipts")
         .select(
-            "id, payroll_run_id, worker_id, squad_reference, squad_tx_id, squad_status, gross_salary, total_deductions, net_pay, amount_kobo, bank_account_number, bank_code, bank_name, account_name, trust_score, verdict, days_present, hr_decision, hr_note, paid_at, failure_reason, month_year, created_at"
+            "id, payroll_run_id, worker_id, bmoni_reference, bmoni_tx_id, bmoni_status, gross_salary, total_deductions, net_pay, amount_kobo, bank_account_number, bank_code, bank_name, account_name, trust_score, verdict, days_present, hr_decision, hr_note, paid_at, failure_reason, month_year, created_at"
         )
         .eq("company_id", hr["company_id"])
         .order("created_at", desc=True)
@@ -258,7 +396,6 @@ async def list_payment_receipts(hr: dict[str, Any], page: int = 1, per_page: int
         .execute()
     )
     receipts = result.data or []
-    # Get total count
     count_result = db.table("payment_receipts").select("id", count="exact").eq("company_id", hr["company_id"]).execute()
     total = count_result.count or 0
     return {"receipts": receipts, "total": total, "page": page, "per_page": per_page}
@@ -289,33 +426,15 @@ async def update_receipt_decision(hr: dict[str, Any], receipt_id: UUID, decision
 
 
 async def requery_receipt_status(hr: dict[str, Any], receipt_id: UUID) -> dict[str, Any]:
-    """Re-query the status of a payment receipt from Squad."""
-    db = get_supabase()
+    """Re-query the status of a BMONI payout receipt.
+
+    Delegates to poll_pending_payout which calls the BMONI API to check
+    the transaction status and updates the receipt DB row if a terminal
+    state is reached.
+    """
     receipt = await get_payment_receipt(hr, receipt_id)
-    if not receipt.get("squad_reference"):
-        raise AppError(400, "NO_REFERENCE", "Receipt has no Squad reference to requery.")
-    try:
-        squad_data = await requery_transfer(receipt["squad_reference"])
-    except AppError as exc:
-        raise AppError(exc.status_code, exc.code, f"Requery failed: {exc.message}") from exc
-    # Map Squad status to our status
-    squad_status = squad_data.get("transaction_status", "").upper()
-    if squad_status == "SUCCESS":
-        our_status = "SUCCESS"
-    elif squad_status in ["FAILED", "REVERSED"]:
-        our_status = "FAILED"
-    else:
-        our_status = "PENDING"
-    # Update the receipt
-    update_data = {"squad_status": our_status}
-    if squad_data.get("nip_transaction_reference"):
-        update_data["squad_tx_id"] = squad_data["nip_transaction_reference"]
-    if our_status == "SUCCESS" and not receipt.get("paid_at"):
-        from datetime import UTC, datetime
-        update_data["paid_at"] = datetime.now(UTC).isoformat()
-    elif our_status == "FAILED":
-        update_data["failure_reason"] = squad_data.get("response_description") or "Failed via requery"
-    updated_result = db.table("payment_receipts").update(update_data).eq("id", str(receipt_id)).execute()
-    updated = _require_row(updated_result.data, "DATABASE_UPDATE_FAILED", "Could not update receipt status.")
-    await write_audit(hr["id"], "hr", "RECEIPT_STATUS_REQUERIED", str(receipt_id), "payment_receipt", {"squad_status": squad_status, "our_status": our_status})
-    return {"receipt": updated, "squad_data": squad_data}
+    result = await poll_pending_payout(str(receipt_id))
+    if not result.get("success"):
+        raise AppError(502, "REQUERY_FAILED", result.get("error", "Failed to requery receipt status"))
+    await write_audit(hr["id"], "hr", "RECEIPT_STATUS_REQUERIED", str(receipt_id), "payment_receipt", result)
+    return {"receipt": result}

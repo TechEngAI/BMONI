@@ -1,6 +1,7 @@
 from app.database import get_supabase
 from app.squad.payments import initiate_deposit, verify_payment
 from app.squad.transfer import get_ledger_balance
+from app.bmoni.client import get_smart_wallet_balances
 from app.wallet.schemas import WalletOverview, WalletTransaction, WalletBalance
 from fastapi import HTTPException
 import hmac
@@ -9,8 +10,35 @@ from app.config import get_settings
 from typing import List, Optional
 
 
+async def _fetch_bmoni_balance_kobo() -> int:
+    """Fetch the real BMONI smart wallet balance, returning it in kobo."""
+    try:
+        balances = await get_smart_wallet_balances()
+        import logging
+        log = logging.getLogger(__name__)
+        log.info("BMONI balances raw response: %s", balances)
+        if not balances:
+            log.warning("BMONI balances returned empty list")
+            return 0
+        # Pick the first wallet with a positive balance
+        for bal in balances:
+            raw = bal.get("balance") or bal.get("availableBalance") or bal.get("available_balance") or "0"
+            log.info("BMONI wallet entry: %s, raw_balance=%s", bal, raw)
+            amount = float(str(raw).strip())
+            if amount > 0:
+                result = int(amount * 100)
+                log.info("BMONI balance resolved to %d kobo (%.2f NGN)", result, result / 100)
+                return result
+        log.warning("No BMONI wallet had a non-zero balance")
+        return 0
+    except Exception:
+        log = logging.getLogger(__name__)
+        log.exception("Failed to fetch BMONI balance, falling back to 0")
+        return 0
+
+
 async def get_wallet_overview(company_id: str) -> WalletOverview:
-    # Load company_wallet
+    # Load company_wallet (for historical totals — balance is overridden from BMONI)
     wallet = get_supabase().table("company_wallet").select("*").eq("company_id", company_id).single().execute().data
     if not wallet:
         raise HTTPException(status_code=404, detail="Wallet not found")
@@ -18,13 +46,16 @@ async def get_wallet_overview(company_id: str) -> WalletOverview:
     # Load last 10 wallet_transactions
     transactions = get_supabase().table("wallet_transactions").select("*").eq("company_id", company_id).order("created_at", desc=True).limit(10).execute().data or []
 
-    # Get Squad ledger balance
+    # Get Squad ledger balance (backup / historical)
     ledger = await get_ledger_balance()
     squad_balance_ngn = ledger.get("balance_kobo", 0) / 100 if ledger.get("success") else 0
 
+    # Real BMONI balance
+    bmoni_balance_kobo = await _fetch_bmoni_balance_kobo()
+
     return WalletOverview(
-        balance_ngn=wallet["balance_kobo"] / 100,
-        balance_kobo=wallet["balance_kobo"],
+        balance_ngn=bmoni_balance_kobo / 100,
+        balance_kobo=bmoni_balance_kobo,
         total_deposited_ngn=wallet["total_deposited_kobo"] / 100,
         total_disbursed_ngn=wallet["total_disbursed_kobo"] / 100,
         last_deposit_at=wallet.get("last_deposit_at"),
@@ -139,10 +170,8 @@ async def get_wallet_transactions(company_id: str, page: int = 1, page_size: int
 
 
 async def get_wallet_balance(company_id: str) -> WalletBalance:
-    wallet = get_supabase().table("company_wallet").select("balance_kobo").eq("company_id", company_id).single().execute().data
-    if not wallet:
-        raise HTTPException(status_code=404, detail="Wallet not found")
+    bmoni_balance_kobo = await _fetch_bmoni_balance_kobo()
     return WalletBalance(
-        balance_kobo=wallet["balance_kobo"],
-        balance_ngn=wallet["balance_kobo"] / 100
+        balance_kobo=bmoni_balance_kobo,
+        balance_ngn=bmoni_balance_kobo / 100
     )

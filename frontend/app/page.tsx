@@ -5,7 +5,7 @@ import { ProblemSection } from "@/components/landing/ProblemSection";
 import { HowItWorksSection } from "@/components/landing/HowItWorksSection";
 import { FeaturesSection } from "@/components/landing/FeaturesSection";
 import { ComparisonSection } from "@/components/landing/ComparisonSection";
-import { SquadSection } from "@/components/landing/SquadSection";
+import { BmoniSection } from "@/components/landing/BmoniSection";
 import { TestimonialsSection } from "@/components/landing/TestimonialsSection";
 import { FAQSection } from "@/components/landing/FAQSection";
 import { PricingSection } from "@/components/landing/PricingSection";
@@ -22,7 +22,7 @@ export default function Home() {
       <HowItWorksSection />
       <FeaturesSection />
       <ComparisonSection />
-      <SquadSection />
+      <BmoniSection />
       <TestimonialsSection />
       <FAQSection />
       <PricingSection />

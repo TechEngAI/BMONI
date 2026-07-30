@@ -190,14 +190,14 @@ async def offramp_nigeria(
     
     # CRITICAL: Check idempotency - has this payout already succeeded?
     db = get_supabase()
-    existing = db.table("payment_receipts").select("*").eq("squad_reference", idempotency_key).limit(1).execute().data
+    existing = db.table("payment_receipts").select("*").eq("bmoni_reference", idempotency_key).limit(1).execute().data
     
-    if existing and existing[0].get("squad_status") == "PAID":
+    if existing and existing[0].get("bmoni_status") == "PAID":
         receipt = existing[0]
         logger.info("Returning existing successful payout for idempotency_key=%s", idempotency_key)
         return {
             "status": "SUCCESS",
-            "transaction_id": receipt.get("squad_tx_id"),
+            "transaction_id": receipt.get("bmoni_tx_id"),
             "amount": receipt.get("net_pay", amount),
             "raw_response": {"idempotent": True, "receipt_id": receipt["id"]},
         }

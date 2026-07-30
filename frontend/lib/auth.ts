@@ -62,11 +62,13 @@ export function setTokens(accessToken: string, refreshToken: string, userType: U
 }
 
 export function clearTokens() {
-
-  // Clear cookies
+  // Clear client-side cookies (js-cookie uses current path).
   Cookies.remove("access_token");
   Cookies.remove("refresh_token");
   Cookies.remove("user_type");
+
+  // Clear httpOnly cookies server-side.
+  fetch("/api/auth/logout", { method: "DELETE", keepalive: true });
 
   // Clear sessionStorage
   sessionStorage_utils.removeItem("access_token");
@@ -90,10 +92,6 @@ export function getRefreshToken() {
 
   // Fallback to cookies
   return Cookies.get("refresh_token");
-  Cookies.remove("user_type");
-  // The /api/auth/logout route will clear the httpOnly cookies.
-  fetch("/api/auth/logout", { method: "DELETE" });
-
 }
 
 export function getUserType(): UserType | null {

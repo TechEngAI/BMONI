@@ -16,3 +16,8 @@ class SquadWebhookEvent(BaseModel):
     transaction_status: str | None = None
     amount: int | float | None = None
     message: str | None = None
+
+
+class OverrideHoldRequest(BaseModel):
+    worker_id: str
+    note: str | None = None

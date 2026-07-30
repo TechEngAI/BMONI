@@ -494,8 +494,20 @@ def _run_step_1(api_key: str, base_url: str, user_id: str) -> None:
     sys.exit(1)
 
 def _run_step_2(api_key: str, base_url: str, user_id: str) -> None:
-    print("  Step 2 standalone mode not yet implemented. Use full script.")
-    sys.exit(1)
+    """Run Step 2 (occupation search) standalone."""
+    print("\n" + "-" * 72)
+    print("[Step 2/10] Fetching occupations …")
+    search_term = _prompt_optional("  Search occupations (press Enter for all): ", "")
+    occupations_resp = _call(
+        "GET",
+        f"/v1/users/{user_id}/kyc/occupations?search={search_term}",
+        api_key=api_key,
+        base_url=base_url,
+        step_label="kyc/occupations",
+    )
+    print("  (Save the occupationCode from the response — needed in Step 6)")
+    print("  >>> Full occupations response structure for debugging:")
+    print(json.dumps(occupations_resp, indent=2)[:2000])
 
 def _run_step_3(api_key: str, base_url: str, user_id: str) -> None:
     print("  Step 3 standalone mode not yet implemented. Use full script.")

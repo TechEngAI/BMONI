@@ -18,8 +18,8 @@ const faqs = [
     answer: "No. GhostGuard works on any standard smartphone (Android or iOS). For organisations without company devices, we support 'Bring Your Own Device' (BYOD) with strict privacy controls."
   },
   {
-    question: "How does the Squad API integration work?",
-    answer: "Once HR approves the 'Verified' payroll list, GhostGuard communicates with Squad's disbursement engine to send salaries directly to the verified bank accounts. This eliminates manual file uploads where fraud often occurs."
+    question: "How does the BMONI API integration work?",
+    answer: "Once HR approves the 'Verified' payroll list, GhostGuard communicates with BMONI's disbursement engine to send salaries directly to the verified bank accounts. This eliminates manual file uploads where fraud often occurs."
   },
   {
     question: "Is worker data secure?",

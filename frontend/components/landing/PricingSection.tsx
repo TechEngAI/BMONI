@@ -21,7 +21,7 @@ const tiers = [
     features: [
       "Up to 200 workers",
       "Advanced device fingerprinting",
-      "Squad API payroll integration",
+      "BMONI API payroll integration",
       "Real-time fraud alerts",
       "Detailed trust score breakdown",
       "Priority support"

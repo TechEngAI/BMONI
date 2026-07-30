@@ -12,6 +12,7 @@ from app.fraud.router import router as fraud_router
 from app.hr.router import router as hr_router
 from app.ml.router import router as ml_router
 from app.payroll.router import router as payroll_router
+from app.remote_checkin.router import router as remote_checkin_router
 from app.wallet.router import router as wallet_router
 from app.worker.router import router as worker_router
 
@@ -80,6 +81,7 @@ app.include_router(fraud_router)
 app.include_router(ml_router)
 app.include_router(hr_router)
 app.include_router(payroll_router)
+app.include_router(remote_checkin_router)
 app.include_router(wallet_router)
 app.include_router(analytics_router)
 

@@ -26,7 +26,7 @@ type FormValues = z.infer<typeof schema>;
 const config = {
   admin: { label: "Admin Portal", accent: "text-admin", icon: ShieldCheck, login: adminLogin, dashboard: "/admin/dashboard", register: "/admin/register" },
   worker: { label: "Worker Portal", accent: "text-worker", icon: BriefcaseBusiness, login: workerLogin, dashboard: "/worker/dashboard", register: "/worker/register" },
-  hr: { label: "HR Portal", accent: "text-hr", icon: HeartHandshake, login: hrLogin, dashboard: "/hr/dashboard", register: "" },
+  hr: { label: "HR Portal", accent: "text-hr", icon: HeartHandshake, login: hrLogin, dashboard: "/hr/dashboard", register: "/hr/register" },
 };
 
 export function LoginForm({ type }: { type: UserType }) {
@@ -38,7 +38,7 @@ export function LoginForm({ type }: { type: UserType }) {
     try {
       const response = await portal.login(values);
       const data = response.data.data;
-      setTokens(data.access_token, data.refresh_token, type);
+      if (data.access_token) setTokens(data.access_token, data.refresh_token, type);
       toast.success("Welcome back.");
       if (type === "admin") {
         try {
@@ -130,11 +130,12 @@ export function LoginForm({ type }: { type: UserType }) {
           </p>
         )}
         {type === "hr" && (
-          <div className="rounded-2xl bg-brand-light/50 dark:bg-slate-800/50 p-4 border border-brand/10 dark:border-slate-700">
-            <p className="text-xs text-brand-dark dark:text-gray-300 font-medium leading-relaxed">
-              HR accounts are managed by your administrator. Check your inbox for an invitation email if you haven't joined yet.
-            </p>
-          </div>
+          <p className="text-center text-sm text-ink-secondary dark:text-gray-400 font-medium">
+            New HR officer?{" "}
+            <Link className="font-bold text-brand hover:underline underline-offset-4" href={portal.register}>
+              Register with invite code
+            </Link>
+          </p>
         )}
       </motion.div>
     </motion.div>

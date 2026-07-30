@@ -10,17 +10,6 @@ FastAPI backend for GhostGuard Part 1: Supabase Auth registration/login, company
 ```bash
 pip install -r requirements.txt
 ```
-
-3. Copy `.env.example` to `.env` and fill in:
-
-```bash
-SUPABASE_URL=
-SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_KEY=
-SQUAD_SECRET_KEY=
-SQUAD_BASE_URL=https://sandbox-api-d.squadco.com
-ENVIRONMENT=development
-FRONTEND_URL=http://localhost:3000
 ```
 
 4. Run `migrations/001_init.sql` in the Supabase SQL editor.

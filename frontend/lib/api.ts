@@ -59,6 +59,9 @@ export const workerLogin = (data: unknown) => authApi.post("/worker/login", data
 export const workerForgotPassword = (data: unknown) => authApi.post("/worker/forgot-password", data);
 export const workerResetPassword = (data: unknown) => authApi.post("/worker/reset-password", data);
 
+export const hrRegisterWithCode = (data: unknown) => authApi.post("/hr/register-with-code", data);
+export const hrVerifyOtp = (data: unknown) => authApi.post("/hr/verify-otp", data);
+export const hrResendOtp = (data: unknown) => authApi.post("/hr/resend-otp", data);
 export const hrLogin = (data: unknown) => authApi.post("/hr/login", data);
 export const hrForgotPassword = (data: unknown) => authApi.post("/hr/forgot-password", data);
 export const hrResetPassword = (data: unknown) => authApi.post("/hr/reset-password", data);
@@ -112,6 +115,9 @@ export const deleteHrOfficer = (id: string) => api.delete(`/admin/hr/${id}`);
 // FRAUD SIGNALS
 export const getFraudSignals = (params?: unknown) => api.get("/admin/fraud-signals", { params });
 
+// REMOTE CHECK-IN
+export const remoteCheckIn = (data: unknown) => api.post("/worker/remote/checkin", data);
+
 // ATTENDANCE
 export const checkIn = (data: unknown) => api.post("/worker/attendance/checkin", data);
 export const checkOut = (data: unknown) => api.post("/worker/attendance/checkout", data);
@@ -133,6 +139,8 @@ export const makeWorkerDecision = (runId: string, workerId: string, data: unknow
 export const approvePayroll = (runId: string) => api.post(`/hr/payroll/${runId}/approve`);
 
 // HR RECEIPTS
+export const getHrAllReceipts = (params?: any) =>
+  api.get("/hr/receipts", { params });
 export const getPayrollReceipts = (runId: string, params?: any) =>
   api.get(`/hr/payroll/${runId}/receipts`, { params });
 
@@ -141,6 +149,12 @@ export const downloadReceiptsCsv = (runId: string) =>
 
 export const retryFailedPayment = (runId: string, receiptId: string) =>
   api.patch(`/hr/payroll/${runId}/receipt/${receiptId}/retry`);
+
+export const getHrWalletBalance = () => api.get("/hr/payroll/wallet-balance");
+
+// ADMIN — refresh a stuck PENDING receipt status from BMONI
+export const refreshReceiptStatus = (receiptId: string) =>
+  api.post(`/admin/payroll/receipts/${receiptId}/refresh-status`);
 
 // WORKER PAYSLIP
 export const getWorkerPayslip = (params?: { month_year?: string }) =>

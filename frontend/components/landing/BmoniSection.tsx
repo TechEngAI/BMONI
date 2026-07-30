@@ -6,12 +6,12 @@ import { BadgeCheck, Landmark, ReceiptText, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import useScrollAnimation from "@/hooks/useScrollAnimation";
 
-export function SquadSection() {
+export function BmoniSection() {
   useScrollAnimation();
   const items = [
-    { icon: BadgeCheck, title: "Bank Verification", body: "Squad confirms every worker's account name matches their government identity." },
-    { icon: Landmark, title: "Salary Disbursement", body: "Squad pays verified workers directly through instant transfers after HR approval." },
-    { icon: ReceiptText, title: "Tamper-Evident Receipts", body: "Every payment generates a unique Squad TX ID linked permanently to attendance records." },
+    { icon: BadgeCheck, title: "Bank Verification", body: "BMONI confirms every worker's account name matches their government identity." },
+    { icon: Landmark, title: "Salary Disbursement", body: "BMONI pays verified workers directly through instant transfers after HR approval." },
+    { icon: ReceiptText, title: "Tamper-Evident Receipts", body: "Every payment generates a unique BMONI transaction ID linked permanently to attendance records." },
   ];
 
   return (
@@ -27,7 +27,7 @@ export function SquadSection() {
         >
           <p className="text-sm font-black uppercase tracking-[0.2em] text-brand mb-4">Secure Infrastructure</p>
           <h2 className="text-4xl font-black tracking-tight sm:text-5xl max-w-2xl leading-[1.1]">
-            Built on Squad's premium payment infrastructure.
+            Built on BMONI's premium payment infrastructure.
           </h2>
         </motion.div>
 
@@ -62,7 +62,7 @@ export function SquadSection() {
           transition={{ delay: 0.8 }}
           className="mt-10 text-xs font-bold uppercase tracking-widest text-brand-light/40"
         >
-          GhostGuard uses Squad's sandbox API and is production-ready for the Nigerian market.
+          GhostGuard uses BMONI's sandbox API and is production-ready for the Nigerian market.
         </motion.p>
       </div>
     </section>

@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { Loader2, Plus, ShieldAlert, Trash2, UserCog } from "lucide-react";
 import toast from "react-hot-toast";
+import { InviteCodeDisplay } from "@/components/admin/InviteCodeDisplay";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
@@ -28,7 +29,8 @@ export default function AdminHrPage() {
   const [error, setError] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({ first_name: "", last_name: "", email: "" });
+  const [form, setForm] = useState({ first_name: "", last_name: "", email: "", phone_number: "" });
+  const [createdCode, setCreatedCode] = useState("");
   const [suspendTarget, setSuspendTarget] = useState<HrOfficer | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<HrOfficer | null>(null);
 
@@ -57,16 +59,22 @@ export default function AdminHrPage() {
     event.preventDefault();
     setSubmitting(true);
     try {
-      await createHrOfficer(form);
-      toast.success(`Invitation sent to ${form.email}. They will receive an email to set up their account.`);
-      setModalOpen(false);
-      setForm({ first_name: "", last_name: "", email: "" });
+      const response = await createHrOfficer(form);
+      const data = unwrapData<any>(response);
+      setCreatedCode(data.invite_code);
+      setForm({ first_name: "", last_name: "", email: "", phone_number: "" });
       await load();
+      toast.success("HR officer invite code generated.");
     } catch (err) {
       toast.error(unwrapError(err));
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function closeModal() {
+    setCreatedCode("");
+    setModalOpen(false);
   }
 
   async function suspend(officer: HrOfficer) {
@@ -155,21 +163,27 @@ export default function AdminHrPage() {
         )}
       </section>
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Add HR Officer">
+      <Modal open={modalOpen && !createdCode} onClose={() => setModalOpen(false)} title="Add HR Officer">
         <form onSubmit={submit} className="space-y-4">
           <Input label="First Name" value={form.first_name} onChange={(event) => setForm((current) => ({ ...current, first_name: event.target.value }))} required />
           <Input label="Last Name" value={form.last_name} onChange={(event) => setForm((current) => ({ ...current, last_name: event.target.value }))} required />
           <Input label="Email" type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} required />
+          <Input label="Phone Number" type="tel" value={form.phone_number} onChange={(event) => setForm((current) => ({ ...current, phone_number: event.target.value }))} />
           <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
             <button type="button" onClick={() => setModalOpen(false)} className="rounded-lg border border-border px-4 py-2 text-sm font-bold text-ink-secondary">
               Cancel
             </button>
             <button type="submit" disabled={submitting} className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white disabled:opacity-60">
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              {submitting ? "Sending invitation..." : "Send Invitation"}
+              {submitting ? "Generating invite code..." : "Generate Invite Code"}
             </button>
           </div>
         </form>
+      </Modal>
+      <Modal open={!!createdCode} onClose={closeModal} title="HR Officer Invite Code">
+        <p className="mb-4 text-sm text-ink-secondary">Share this invite code with the HR officer so they can sign up.</p>
+        <InviteCodeDisplay code={createdCode} />
+        <button onClick={closeModal} className="mt-6 rounded-lg bg-brand px-4 py-2 font-bold text-white">Done</button>
       </Modal>
 
       <ConfirmDialog

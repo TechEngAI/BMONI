@@ -9,7 +9,7 @@ from app.auth.service import write_audit
 from app.database import get_supabase
 from app.errors import AppError
 from app.profile import calculate_completeness, missing_profile_fields
-from app.squad.client import lookup_account
+from app.bmoni.client import verify_nigerian_account
 from app.worker.schemas import BankChangeRequest, BankLookupRequest, BankSubmitRequest, WorkerProfileUpdate
 
 
@@ -56,9 +56,9 @@ async def update_profile(worker: dict[str, Any], payload: WorkerProfileUpdate) -
 
 
 async def bank_lookup(payload: BankLookupRequest) -> dict[str, Any]:
-    """Look up account details through Squad without saving them."""
+    """Look up account details through BMONI without saving them."""
 
-    result = await lookup_account(payload.account_number, payload.bank_code)
+    result = await verify_nigerian_account(payload.account_number, payload.bank_code)
     return {"account_name": result["account_name"], "bank_name": result.get("bank_name")}
 
 
@@ -73,10 +73,10 @@ async def submit_bank(worker: dict[str, Any], payload: BankSubmitRequest) -> dic
     """Save a bank account and classify the fuzzy name match result."""
 
     db = get_supabase()
-    lookup = await lookup_account(payload.account_number, payload.bank_code)
+    lookup = await verify_nigerian_account(payload.account_number, payload.bank_code)
     squad_account_name = lookup["account_name"]
     if payload.confirmed_account_name.strip().upper() != squad_account_name.strip().upper():
-        raise AppError(422, "BANK_LOOKUP_FAILED", "Confirmed account name does not match Squad's latest lookup.", "confirmed_account_name")
+        raise AppError(422, "BANK_LOOKUP_FAILED", "Confirmed account name does not match latest bank verification.", "confirmed_account_name")
     score = _name_match_score(squad_account_name, worker)
     if score >= 85:
         match_status = "AUTO_VERIFIED"
@@ -146,7 +146,7 @@ async def current_bank(worker: dict[str, Any]) -> dict[str, Any]:
 async def request_bank_change(worker: dict[str, Any], payload: BankChangeRequest) -> dict[str, Any]:
     """Record a bank change request for admin review."""
 
-    lookup = await lookup_account(payload.new_account_number, payload.new_bank_code)
+    lookup = await verify_nigerian_account(payload.new_account_number, payload.new_bank_code)
     current = get_supabase().table("worker_bank_accounts").select("*").eq("worker_id", worker["id"]).eq("is_active", True).limit(1).execute().data
     metadata = {
         "requested_account": {**payload.model_dump(), "account_name": lookup["account_name"]},

@@ -18,7 +18,7 @@ class WorkerProfileUpdate(BaseModel):
 
 class BankLookupRequest(BaseModel):
     account_number: str = Field(..., min_length=10, max_length=10, pattern=r"^\d{10}$")
-    bank_code: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$")
+    bank_code: str = Field(..., min_length=3, max_length=3, pattern=r"^\d{3}$")
 
     @field_validator("bank_code", mode="before")
     @classmethod
@@ -35,7 +35,7 @@ class BankLookupRequest(BaseModel):
 
 class BankSubmitRequest(BaseModel):
     account_number: str = Field(..., min_length=10, max_length=10, pattern=r"^\d{10}$")
-    bank_code: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$")
+    bank_code: str = Field(..., min_length=3, max_length=3, pattern=r"^\d{3}$")
     bank_name: str
     confirmed_account_name: str
 
@@ -54,7 +54,7 @@ class BankSubmitRequest(BaseModel):
 
 class BankChangeRequest(BaseModel):
     new_account_number: str = Field(..., min_length=10, max_length=10, pattern=r"^\d{10}$")
-    new_bank_code: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$")
+    new_bank_code: str = Field(..., min_length=3, max_length=3, pattern=r"^\d{3}$")
     reason: str
 
     @field_validator("new_bank_code", mode="before")

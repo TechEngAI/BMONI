@@ -9,6 +9,8 @@ from app.dependencies import get_current_admin
 from app.errors import success_response
 from app.ml import service
 from app.ml.schemas import PayrollGenerateRequest
+from app.payroll import service as payroll_service
+from app.payroll.schemas import OverrideHoldRequest
 
 router = APIRouter(prefix="/admin/payroll", tags=["payroll"])
 
@@ -35,5 +37,37 @@ async def csv(run_id: UUID, admin: dict[str, Any] = Depends(get_current_admin)):
         BytesIO(csv_text.encode("utf-8")),
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/override-hold")
+async def override_hold(
+    payload: OverrideHoldRequest,
+    admin: dict[str, Any] = Depends(get_current_admin),
+):
+    return success_response(
+        await payroll_service.override_payroll_hold(admin, payload.worker_id),
+        "Payroll hold overridden.",
+    )
+
+
+@router.get("/risk-summary")
+async def risk_summary(
+    admin: dict[str, Any] = Depends(get_current_admin),
+):
+    return success_response(
+        await payroll_service.risk_summary(admin),
+        "Risk summary retrieved.",
+    )
+
+
+@router.post("/receipts/{receipt_id}/refresh-status")
+async def refresh_receipt_status(
+    receipt_id: UUID,
+    admin: dict[str, Any] = Depends(get_current_admin),
+):
+    return success_response(
+        await payroll_service.refresh_receipt_status(admin, receipt_id),
+        "Receipt status refreshed.",
     )
 

@@ -9,6 +9,7 @@ from app.dependencies import get_current_hr, get_current_worker
 from app.errors import success_response
 from app.payroll import service
 from app.payroll.schemas import PayrollDecisionRequest
+from app.wallet.service import get_wallet_balance
 
 router = APIRouter(tags=["hr-payroll"])
 
@@ -36,8 +37,8 @@ async def approve(run_id: UUID, background_tasks: BackgroundTasks, hr: dict[str,
 
 
 @router.get("/hr/payroll/{run_id}/receipts")
-async def receipts(run_id: UUID, squad_status: str | None = None, page: int = 1, page_size: int = 50, hr: dict[str, Any] = Depends(get_current_hr)):
-    return success_response(await service.receipts(hr, run_id, squad_status, max(page, 1), min(max(page_size, 1), 100)), "Payment receipts retrieved.")
+async def receipts(run_id: UUID, bmoni_status: str | None = None, page: int = 1, page_size: int = 50, hr: dict[str, Any] = Depends(get_current_hr)):
+    return success_response(await service.receipts(hr, run_id, bmoni_status, max(page, 1), min(max(page_size, 1), 100)), "Payment receipts retrieved.")
 
 
 @router.get("/hr/payroll/{run_id}/receipts/download")
@@ -49,6 +50,11 @@ async def download_receipts(run_id: UUID, hr: dict[str, Any] = Depends(get_curre
 @router.patch("/hr/payroll/{run_id}/receipt/{receipt_id}/retry")
 async def retry(run_id: UUID, receipt_id: UUID, hr: dict[str, Any] = Depends(get_current_hr)):
     return success_response(await service.retry_receipt(hr, run_id, receipt_id), "Payment retry initiated.")
+
+
+@router.get("/hr/payroll/wallet-balance")
+async def hr_wallet_balance(hr: dict[str, Any] = Depends(get_current_hr)):
+    return success_response(await get_wallet_balance(hr["company_id"]), "Wallet balance retrieved.")
 
 
 @router.get("/worker/payslip")

@@ -44,7 +44,7 @@ export function ReceiptsTable({
                 <th className="px-4 py-3">Deductions</th>
                 <th className="px-4 py-3">Net Pay</th>
                 <th className="px-4 py-3">Bank</th>
-                <th className="px-4 py-3">Squad TX ID</th>
+                <th className="px-4 py-3">BMONI TX ID</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Paid At</th>
               </tr>
@@ -66,7 +66,7 @@ export function ReceiptsTable({
                       <div className="flex items-center gap-2">
                         <span title={txId} className="max-w-[140px] truncate font-mono text-xs">{txId || "-"}</span>
                         {txId && (
-                          <button onClick={() => handleCopy(txId)} className="rounded-md border border-border p-1 text-ink-tertiary hover:text-brand" aria-label="Copy Squad transaction ID">
+                          <button onClick={() => handleCopy(txId)} className="rounded-md border border-border p-1 text-ink-tertiary hover:text-brand" aria-label="Copy BMONI transaction ID">
                             <Copy className="h-3.5 w-3.5" />
                           </button>
                         )}
@@ -92,7 +92,7 @@ export function ReceiptsTable({
         open={Boolean(retryReceipt)}
         onClose={() => setRetryReceipt(null)}
         title={`Retry payment for ${retryReceipt?.worker_name || "worker"}?`}
-        description="This will initiate a new Squad transfer."
+        description="This will initiate a new BMONI transfer."
         confirmLabel="Retry Payment"
         onConfirm={async () => {
           await onRetry(retryReceipt);
