@@ -2,6 +2,7 @@
   "name": "ghostguard",
   "version": "1.0.0",
   "private": true,
+  "description": "GhostGuard",
   "scripts": {
     "dev": "npm run dev --prefix frontend",
     "build": "npm run build --prefix frontend",

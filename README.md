@@ -75,4 +75,4 @@ npm run dev
 
 ## Contact
 
-For more details, open `backend/app/main.py` for the API entry point and `frontend/app` for the route structure.
+For more details, open `backend/app/main.py` for the API entry point and `frontend/app` for the route structure
